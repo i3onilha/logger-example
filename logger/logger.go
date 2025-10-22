@@ -12,10 +12,11 @@ import (
 )
 
 type logEntry struct {
-	level  zapcore.Level
-	ctx    context.Context
-	msg    string
-	fields []zap.Field
+	level     zapcore.Level
+	ctx       context.Context
+	msg       string
+	fields    []zap.Field
+	timestamp time.Time
 }
 
 var (
@@ -91,6 +92,9 @@ func writeLog(entry logEntry) {
 	traceFields := extractTraceFields(entry.ctx)
 	fields := append(entry.fields, traceFields...)
 
+	// Add the captured timestamp as a field
+	fields = append(fields, zap.Time("timestamp", entry.timestamp))
+
 	switch entry.level {
 	case zapcore.InfoLevel:
 		log.Info(entry.msg, fields...)
@@ -117,21 +121,45 @@ func extractTraceFields(ctx context.Context) []zap.Field {
 
 // Public logging functions (non-blocking)
 func Info(ctx context.Context, msg string, fields ...zap.Field) {
-	asyncCh <- logEntry{level: zapcore.InfoLevel, ctx: ctx, msg: msg, fields: fields}
+	asyncCh <- logEntry{
+		level:     zapcore.InfoLevel,
+		ctx:       ctx,
+		msg:       msg,
+		fields:    fields,
+		timestamp: time.Now(),
+	}
 }
 
 func Warn(ctx context.Context, msg string, fields ...zap.Field) {
-	asyncCh <- logEntry{level: zapcore.WarnLevel, ctx: ctx, msg: msg, fields: fields}
+	asyncCh <- logEntry{
+		level:     zapcore.WarnLevel,
+		ctx:       ctx,
+		msg:       msg,
+		fields:    fields,
+		timestamp: time.Now(),
+	}
 }
 
 func Error(ctx context.Context, err error, msg string, fields ...zap.Field) {
 	fields = append(fields, zap.String("error", err.Error()))
-	asyncCh <- logEntry{level: zapcore.ErrorLevel, ctx: ctx, msg: msg, fields: fields}
+	asyncCh <- logEntry{
+		level:     zapcore.ErrorLevel,
+		ctx:       ctx,
+		msg:       msg,
+		fields:    fields,
+		timestamp: time.Now(),
+	}
 }
 
 func Debug(ctx context.Context, msg string, fields ...zap.Field) {
 	if config.Level == "debug" {
-		asyncCh <- logEntry{level: zapcore.DebugLevel, ctx: ctx, msg: msg, fields: fields}
+		asyncCh <- logEntry{
+			level:     zapcore.DebugLevel,
+			ctx:       ctx,
+			msg:       msg,
+			fields:    fields,
+			timestamp: time.Now(),
+		}
 	}
 }
 
